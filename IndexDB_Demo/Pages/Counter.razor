@@ -1,0 +1,175 @@
+﻿@page "/counter"
+@using Blazor.IndexedDB
+@using IndexDB_Demo.Model
+@inject IIndexedDbFactory DbFactory
+
+<EditForm Model="newPerson" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-4">
+        <h5 class="mb-3">@((editPerson != null) ? "Edit Person" : "Add a New Person")</h5>
+
+        <div class="mb-3">
+            <label class="form-label">First Name:</label>
+            <InputText @bind-Value="newPerson.FirstName" class="form-control" />
+            <ValidationMessage For="@(() => newPerson.FirstName)" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Last Name:</label>
+            <InputText @bind-Value="newPerson.LastName" class="form-control" />
+            <ValidationMessage For="@(() => newPerson.LastName)" class="text-danger" />
+        </div>
+
+        <h6>Addresses</h6>
+        @if (newPerson.Addresses.Count == 0)
+        {
+            <p class="text-muted">No addresses added. Click "Add Address" to start.</p>
+        }
+        @foreach (var address in newPerson.Addresses)
+        {
+            <div class="mb-3 border rounded p-2">
+                <div class="row">
+                    <div class="col">
+                        <InputText @bind-Value="address.Street" placeholder="Street" class="form-control" />
+                    </div>
+                    <div class="col">
+                        <InputText @bind-Value="address.City" placeholder="City" class="form-control" />
+                    </div>
+                    <div class="col-auto align-self-center">
+                        <button class="btn btn-danger" @onclick="() => RemoveAddress(address)">Remove</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <button type="button" class="btn btn-secondary mt-2" @onclick="AddAddress">Add Address</button>
+
+        <button type="submit" class="btn btn-primary mt-3">
+            @((editPerson != null) ? "Update Person" : "Add Person")
+        </button>
+
+    </div>
+</EditForm>
+
+
+<h4 class="my-3">Person List</h4>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Addresses</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var person in persons)
+        {
+            <tr>
+                <td>@person.Id</td>
+                <td>@person.FirstName</td>
+                <td>@person.LastName</td>
+                <td>
+                    @foreach (var address in person.Addresses)
+                    {
+                        <div>@address.Street, @address.City</div>
+                    }
+                </td>
+                <td>
+                    <button class="btn btn-warning btn-sm mr-2" @onclick="() => EditPerson(person)">Edit</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => DeletePerson(person.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<Person> persons = new List<Person>();
+    private Person newPerson = new Person();
+    private Person editPerson;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPersons();
+    }
+
+    private async Task LoadPersons()
+    {
+        using (var db = await DbFactory.Create<ExampleDb>())
+        {
+            persons = db.People.ToList();
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (editPerson != null)
+        {
+            // Update Existing Person
+            using (var db = await DbFactory.Create<ExampleDb>())
+            {
+                var personToUpdate = db.People.First(p => p.Id == editPerson.Id);
+                personToUpdate.FirstName = newPerson.FirstName;
+                personToUpdate.LastName = newPerson.LastName;
+                personToUpdate.Addresses = newPerson.Addresses; // Update addresses as well
+                await db.SaveChanges();
+            }
+            editPerson = null; // Reset editPerson after update
+        }
+        else
+        {
+            // Add New Person
+            using (var db = await DbFactory.Create<ExampleDb>())
+            {
+                db.People.Add(new Person
+                    {
+                        FirstName = newPerson.FirstName,
+                        LastName = newPerson.LastName,
+                        Addresses = newPerson.Addresses // Ensure addresses are added as well
+                    });
+                await db.SaveChanges();
+            }
+        }
+
+        newPerson = new Person(); // Reset the form for a new entry
+        await LoadPersons(); // Refresh the list
+    }
+
+
+    private void AddAddress()
+    {
+        newPerson.Addresses.Add(new Address());
+    }
+
+    private void RemoveAddress(Address address)
+    {
+        newPerson.Addresses.Remove(address);
+    }
+
+    private void EditPerson(Person person)
+    {
+        editPerson = person;
+        newPerson = new Person
+            {
+                Id = person.Id,
+                FirstName = person.FirstName,
+                LastName = person.LastName,
+                Addresses = person.Addresses.ToList()
+            };
+    }
+
+    private async Task DeletePerson(long id)
+    {
+        using (var db = await DbFactory.Create<ExampleDb>())
+        {
+            var personToDelete = db.People.First(p => p.Id == id);
+            db.People.Remove(personToDelete);
+            await db.SaveChanges();
+        }
+        await LoadPersons();
+    }
+}

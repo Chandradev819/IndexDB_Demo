@@ -1,0 +1,145 @@
+﻿@page "/"
+@using Blazor.IndexedDB
+@using IndexDB_Demo.Model
+@inject IIndexedDbFactory DbFactory
+
+<h3 class="my-3">Person Management</h3>
+
+<!-- Add or Update Person Section -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">@((editPerson != null) ? "Edit Person" : "Add a New Person")</h5>
+    </div>
+    <div class="card-body">
+        <EditForm Model="newPerson" OnValidSubmit="HandleValidSubmit">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label for="firstName" class="form-label">First Name</label>
+                <InputText id="firstName" class="form-control" @bind-Value="newPerson.FirstName" />
+                <ValidationMessage For="@(() => newPerson.FirstName)" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label for="lastName" class="form-label">Last Name</label>
+                <InputText id="lastName" class="form-control" @bind-Value="newPerson.LastName" />
+                <ValidationMessage For="@(() => newPerson.LastName)" class="text-danger" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                @((editPerson != null) ? "Update Person" : "Add Person")
+            </button>
+            @if (editPerson != null)
+            {
+                <button type="button" class="btn btn-secondary ml-2" @onclick="CancelEdit">Cancel</button>
+            }
+        </EditForm>
+    </div>
+</div>
+
+<!-- Display Person Records in a Grid -->
+<h4 class="my-3">Person List</h4>
+<table class="table table-striped table-hover">
+    <thead class="thead-dark">
+        <tr>
+            <th>ID</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var person in persons)
+        {
+            <tr>
+                <td>@person.Id</td>
+                <td>@person.FirstName</td>
+                <td>@person.LastName</td>
+                <td>
+                    <button class="btn btn-warning btn-sm mr-2" @onclick="() => EditPerson(person)">Edit</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => DeletePerson(person.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<Person> persons = new List<Person>();
+    private Person newPerson = new Person();
+    private Person editPerson;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPersons();
+    }
+
+    private async Task LoadPersons()
+    {
+        using (var db = await DbFactory.Create<ExampleDb>())
+        {
+            persons = db.People.ToList();
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (editPerson != null)
+        {
+            // Update Existing Person
+            using (var db = await DbFactory.Create<ExampleDb>())
+            {
+                var personToUpdate = db.People.First(p => p.Id == editPerson.Id);
+                personToUpdate.FirstName = newPerson.FirstName;
+                personToUpdate.LastName = newPerson.LastName;
+                await db.SaveChanges();
+            }
+            editPerson = null;
+        }
+        else
+        {
+            // Add New Person
+            using (var db = await DbFactory.Create<ExampleDb>())
+            {
+                db.People.Add(new Person
+                    {
+                        FirstName = newPerson.FirstName,
+                        LastName = newPerson.LastName
+                    });
+                await db.SaveChanges();
+            }
+        }
+
+        newPerson = new Person();
+        await LoadPersons();
+    }
+
+    private void EditPerson(Person person)
+    {
+        editPerson = person;
+        newPerson = new Person
+            {
+                Id = person.Id,
+                FirstName = person.FirstName,
+                LastName = person.LastName
+            };
+    }
+
+    private void CancelEdit()
+    {
+        editPerson = null;
+        newPerson = new Person();
+    }
+
+    private async Task DeletePerson(long id)
+    {
+        using (var db = await DbFactory.Create<ExampleDb>())
+        {
+            var personToDelete = db.People.First(p => p.Id == id);
+            db.People.Remove(personToDelete);
+            await db.SaveChanges();
+        }
+        await LoadPersons();
+    }
+}
