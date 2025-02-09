@@ -77,7 +77,7 @@
 
     private async Task LoadPersons()
     {
-        using (var db = await DbFactory.Create<ExampleDb>())
+        using (var db = await DbFactory.Create<PersonDB>())
         {
             persons = db.People.ToList();
         }
@@ -88,7 +88,7 @@
         if (editPerson != null)
         {
             // Update Existing Person
-            using (var db = await DbFactory.Create<ExampleDb>())
+            using (var db = await DbFactory.Create<PersonDB>())
             {
                 var personToUpdate = db.People.First(p => p.Id == editPerson.Id);
                 personToUpdate.FirstName = newPerson.FirstName;
@@ -100,7 +100,7 @@
         else
         {
             // Add New Person
-            using (var db = await DbFactory.Create<ExampleDb>())
+            using (var db = await DbFactory.Create<PersonDB>())
             {
                 db.People.Add(new Person
                     {
@@ -134,7 +134,7 @@
 
     private async Task DeletePerson(long id)
     {
-        using (var db = await DbFactory.Create<ExampleDb>())
+        using (var db = await DbFactory.Create<PersonDB>())
         {
             var personToDelete = db.People.First(p => p.Id == id);
             db.People.Remove(personToDelete);
