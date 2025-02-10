@@ -22,8 +22,6 @@ namespace IndexDB_Demo.Model
 
     public class Address
     {
-        public long Id { get; set; } // Primary Key for Address
-        public long PersonId { get; set; } // Foreign Key (Manual Reference)
         public string? Street { get; set; }
         public string? City { get; set; }
     }
